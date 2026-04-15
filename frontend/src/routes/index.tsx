@@ -5,5 +5,5 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  return <main className="page-wrap px-4 py-16 sm:py-24">Home page</main>;
+  return <main className="page-wrap px-4 py-16 sm:py-24">Home pageeeeee</main>;
 }
