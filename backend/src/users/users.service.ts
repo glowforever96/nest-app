@@ -1,81 +1,141 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
-type User = {
-  id: number;
-  name: string;
-  email: string;
-  age: number;
-};
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateUserDto } from './dto/create-user.dto.js';
+import { UpdateUserDto } from './dto/update-user.dto.js';
 
 @Injectable()
 export class UsersService {
-  private users: User[] = [
-    {
-      id: 1,
-      name: 'Kim',
-      email: 'kim@example.com',
-      age: 20,
-    },
-    {
-      id: 2,
-      name: 'Lee',
-      email: 'lee@example.com',
-      age: 21,
-    },
-  ];
+  constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.users;
+  async findAll() {
+    return this.prisma.user.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
 
-  findOne(id: number) {
-    const user = this.users.find((user) => user.id === id);
+  async findOne(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    return user;
+  }
+
+  async findByEmail(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    return user;
+  }
+
+  async create(createUserDto: CreateUserDto) {
+    const existingUser = await this.prisma.user.findUnique({
+      where: {
+        email: createUserDto.email,
+      },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('이미 사용 중인 이메일입니다.');
+    }
+    return this.prisma.user.create({
+      data: createUserDto,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    await this.ensureUserExists(id);
+
+    if (updateUserDto.email) {
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: updateUserDto.email },
+      });
+
+      if (existingUser && existingUser.id !== id) {
+        throw new ConflictException('이미 사용 중인 이메일입니다.');
+      }
+    }
+    return this.prisma.user.update({
+      where: { id },
+      data: updateUserDto,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async remove(id: number) {
+    await this.ensureUserExists(id);
+
+    return this.prisma.user.delete({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  private async ensureUserExists(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
     if (!user) {
       throw new NotFoundException('사용자를 찾을 수 없습니다.');
     }
     return user;
-  }
-
-  search(name: string) {
-    const user = this.users.find(
-      (user) => user.name.toLowerCase() === name.toLowerCase(),
-    );
-    console.log(user);
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-    return user;
-  }
-
-  create(name: string, email: string, age: number) {
-    const newUser = {
-      id: this.users.length > 0 ? this.users[this.users.length - 1].id + 1 : 1,
-      name,
-      email,
-      age,
-    };
-    this.users.push(newUser);
-    return newUser;
-  }
-
-  update(id: number, name?: string, email?: string, age?: number) {
-    const user = this.findOne(id);
-    if (name !== undefined) user.name = name;
-    if (email !== undefined) user.email = email;
-    if (age !== undefined) user.age = age;
-
-    return user;
-  }
-
-  remove(id: number) {
-    const index = this.users.findIndex((user) => user.id === id);
-
-    if (index === -1) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다.');
-    }
-
-    const deletedUser = this.users[index];
-    this.users.splice(index, 1);
-    return deletedUser;
   }
 }
