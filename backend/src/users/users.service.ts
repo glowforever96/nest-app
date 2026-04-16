@@ -127,6 +127,12 @@ export class UsersService {
     });
   }
 
+  async findOneByEmailForAuth(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
   private async ensureUserExists(id: number) {
     const user = await this.prisma.user.findUnique({
       where: { id },

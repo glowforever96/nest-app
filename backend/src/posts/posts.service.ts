@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreatePostDto } from './dto/create-post.dto.js';
 import { UpdatePostDto } from './dto/update-post.dto.js';
@@ -10,12 +14,11 @@ export class PostsService {
   async findAll() {
     return this.prisma.post.findMany({
       orderBy: {
-        id: 'desc',
+        createdAt: 'desc',
       },
       select: {
         id: true,
         title: true,
-        content: true,
         authorId: true,
         createdAt: true,
         updatedAt: true,
@@ -57,14 +60,41 @@ export class PostsService {
     return post;
   }
 
-  async create(createPostDto: CreatePostDto) {
-    await this.ensureAuthorExists(createPostDto.authorId);
+  async findByUserId(userId: number) {
+    await this.ensureAuthorExists(userId);
+
+    return this.prisma.post.findMany({
+      where: {
+        authorId: userId,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        title: true,
+        authorId: true,
+        createdAt: true,
+        updatedAt: true,
+        author: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
+  async create(authorId: number, createPostDto: CreatePostDto) {
+    await this.ensureAuthorExists(authorId);
 
     return this.prisma.post.create({
       data: {
         title: createPostDto.title,
         content: createPostDto.content,
-        authorId: createPostDto.authorId,
+        authorId,
       },
       select: {
         id: true,
@@ -84,8 +114,16 @@ export class PostsService {
     });
   }
 
-  async update(id: number, updatePostDto: UpdatePostDto) {
-    await this.ensurePostExists(id);
+  async update(
+    id: number,
+    currentUserId: number,
+    updatePostDto: UpdatePostDto,
+  ) {
+    const post = await this.ensurePostExists(id);
+
+    if (post.authorId !== currentUserId) {
+      throw new ForbiddenException('본인 게시글만 수정할 수 있습니다.');
+    }
 
     return this.prisma.post.update({
       where: { id },
@@ -108,8 +146,12 @@ export class PostsService {
     });
   }
 
-  async remove(id: number) {
-    await this.ensurePostExists(id);
+  async remove(id: number, currentUserId: number) {
+    const post = await this.ensurePostExists(id);
+
+    if (post.authorId !== currentUserId) {
+      throw new ForbiddenException('본인 게시글만 삭제할 수 있습니다.');
+    }
 
     return this.prisma.post.delete({
       where: { id },
@@ -147,7 +189,7 @@ export class PostsService {
   private async ensurePostExists(id: number) {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, authorId: true },
     });
 
     if (!post) {
