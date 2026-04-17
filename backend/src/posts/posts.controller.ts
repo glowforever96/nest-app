@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { PostsService } from './posts.service.js';
@@ -15,28 +16,45 @@ import { UpdatePostDto } from './dto/update-post.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { CurrentUserType } from '../auth/types/current-user.type.js';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiOkResponse,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { GetPostsQueryDto } from './dto/get-posts-query.dto.js';
 
 @Controller('posts')
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
   @Get()
-  findAll() {
-    return this.postsService.findAll();
+  @ApiOkResponse({ description: '게시글 목록 조회 성공' })
+  findAll(@Query() query: GetPostsQueryDto) {
+    return this.postsService.findAll(query);
   }
 
   @Get('user/:userId')
-  findByUserId(@Param('userId', ParseIntPipe) userId: number) {
-    return this.postsService.findByUserId(userId);
+  @ApiOkResponse({ description: '특정 사용자 게시글 목록 조회 성공' })
+  findByUserId(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Query() query: GetPostsQueryDto,
+  ) {
+    return this.postsService.findByUserId(userId, query);
   }
 
   @Get(':id')
+  @ApiOkResponse({ description: '게시글 상세 조회 성공' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.postsService.findOne(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post()
+  @ApiBearerAuth('access-token')
+  @ApiCreatedResponse({ description: '게시글 생성 성공' })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
   create(
     @CurrentUser() user: CurrentUserType,
     @Body() createPostDto: CreatePostDto,
@@ -46,6 +64,10 @@ export class PostsController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ description: '게시글 수정 성공' })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiForbiddenResponse({ description: '본인 게시글만 수정 가능' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: CurrentUserType,
@@ -56,6 +78,10 @@ export class PostsController {
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ description: '게시글 삭제 성공' })
+  @ApiUnauthorizedResponse({ description: '로그인 필요' })
+  @ApiForbiddenResponse({ description: '본인 게시글만 삭제 가능' })
   remove(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: CurrentUserType,
