@@ -8,7 +8,9 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { PostsService } from './posts.service.js';
 import { CreatePostDto } from './dto/create-post.dto.js';
@@ -18,6 +20,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { CurrentUserType } from '../auth/types/current-user.type.js';
 import {
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiOkResponse,
@@ -26,6 +30,10 @@ import {
 import { GetPostsQueryDto } from './dto/get-posts-query.dto.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { postImageMulterOptions } from '../common/multer/multer.options.js';
+import { UploadPostFileDto } from './dto/upload-post-file.dto.js';
+import { UpdatePostFileDto } from './dto/update-post-file.dto.js';
 
 @Controller('posts')
 export class PostsController {
@@ -63,19 +71,32 @@ export class PostsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
+  @UseInterceptors(FileInterceptor('file', postImageMulterOptions))
   @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: '게시글 + 대표 이미지 업로드',
+    type: UploadPostFileDto,
+  })
   @ApiCreatedResponse({ description: '게시글 생성 성공' })
   @ApiUnauthorizedResponse({ description: '로그인 필요' })
   create(
     @CurrentUser() user: CurrentUserType,
     @Body() createPostDto: CreatePostDto,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.postsService.create(user.userId, createPostDto);
+    return this.postsService.create(user.userId, createPostDto, file);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
+  @UseInterceptors(FileInterceptor('file', postImageMulterOptions))
   @ApiBearerAuth('access-token')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: '게시글 수정 + 대표 이미지 교체/삭제',
+    type: UpdatePostFileDto,
+  })
   @ApiOkResponse({ description: '게시글 수정 성공' })
   @ApiUnauthorizedResponse({ description: '로그인 필요' })
   @ApiForbiddenResponse({ description: '본인 게시글만 수정 가능' })
@@ -83,8 +104,9 @@ export class PostsController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: CurrentUserType,
     @Body() updatePostDto: UpdatePostDto,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.postsService.update(id, user.userId, updatePostDto);
+    return this.postsService.update(id, user.userId, updatePostDto, file);
   }
 
   @UseGuards(JwtAuthGuard)

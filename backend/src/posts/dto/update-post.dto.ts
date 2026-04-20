@@ -1,5 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdatePostDto {
   @ApiProperty({
@@ -21,4 +22,13 @@ export class UpdatePostDto {
   @IsString()
   @MinLength(1)
   content?: string;
+
+  @ApiPropertyOptional({
+    example: false,
+    description: '기존 이미지를 삭제할지 여부',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  removeImage?: boolean;
 }

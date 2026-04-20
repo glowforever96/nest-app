@@ -78,6 +78,7 @@ export const UserScalarFieldEnum = {
   name: 'name',
   password: 'password',
   role: 'role',
+  hashedRefreshToken: 'hashedRefreshToken',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -89,6 +90,7 @@ export const PostScalarFieldEnum = {
   id: 'id',
   title: 'title',
   content: 'content',
+  imageUrl: 'imageUrl',
   authorId: 'authorId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',

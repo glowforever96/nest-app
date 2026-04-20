@@ -7,6 +7,11 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreatePostDto } from './dto/create-post.dto.js';
 import { UpdatePostDto } from './dto/update-post.dto.js';
 import { GetPostsQueryDto } from './dto/get-posts-query.dto.js';
+import { deleteFileByUrl } from '../common/utils/file.util.js';
+
+type UploadedFile = {
+  filename: string;
+};
 
 @Injectable()
 export class PostsService {
@@ -59,6 +64,7 @@ export class PostsService {
           authorId: true,
           createdAt: true,
           updatedAt: true,
+          imageUrl: true,
           author: {
             select: {
               id: true,
@@ -101,6 +107,7 @@ export class PostsService {
         authorId: true,
         createdAt: true,
         updatedAt: true,
+        imageUrl: true,
         author: {
           select: {
             id: true,
@@ -189,6 +196,7 @@ export class PostsService {
           authorId: true,
           createdAt: true,
           updatedAt: true,
+          imageUrl: true,
           author: {
             select: {
               id: true,
@@ -269,6 +277,7 @@ export class PostsService {
           authorId: true,
           createdAt: true,
           updatedAt: true,
+          imageUrl: true,
           deletedAt: true,
           author: {
             select: {
@@ -301,14 +310,21 @@ export class PostsService {
     };
   }
 
-  async create(authorId: number, createPostDto: CreatePostDto) {
+  async create(
+    authorId: number,
+    createPostDto: CreatePostDto,
+    file?: UploadedFile,
+  ) {
     await this.ensureAuthorExists(authorId);
+
+    const imageUrl = file ? `/uploads/posts/${file.filename}` : null;
 
     return this.prisma.post.create({
       data: {
         title: createPostDto.title,
         content: createPostDto.content,
         authorId,
+        imageUrl,
       },
       select: {
         id: true,
@@ -317,6 +333,7 @@ export class PostsService {
         authorId: true,
         createdAt: true,
         updatedAt: true,
+        imageUrl: true,
         author: {
           select: {
             id: true,
@@ -332,20 +349,61 @@ export class PostsService {
     id: number,
     currentUserId: number,
     updatePostDto: UpdatePostDto,
+    file?: UploadedFile,
   ) {
-    const post = await this.ensurePostExists(id);
+    const post: {
+      id: number;
+      authorId: number;
+      imageUrl: string | null;
+    } | null = await this.prisma.post.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        authorId: true,
+        imageUrl: true,
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('게시글을 찾을 수 없습니다.');
+    }
 
     if (post.authorId !== currentUserId) {
       throw new ForbiddenException('본인 게시글만 수정할 수 있습니다.');
     }
 
+    let imageUrl: string | null = post.imageUrl;
+
+    // 새 이미지 업로드 시 기존 이미지 삭제 후 교체
+    if (file) {
+      deleteFileByUrl(post.imageUrl);
+      imageUrl = `/uploads/posts/${file.filename}`;
+    }
+
+    if (updatePostDto.removeImage && !file) {
+      deleteFileByUrl(post.imageUrl);
+      imageUrl = null;
+    }
+
     return this.prisma.post.update({
       where: { id },
-      data: updatePostDto,
+      data: {
+        ...(updatePostDto.title !== undefined && {
+          title: updatePostDto.title,
+        }),
+        ...(updatePostDto.content !== undefined && {
+          content: updatePostDto.content,
+        }),
+        imageUrl,
+      },
       select: {
         id: true,
         title: true,
         content: true,
+        imageUrl: true,
         authorId: true,
         createdAt: true,
         updatedAt: true,

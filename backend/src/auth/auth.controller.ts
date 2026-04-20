@@ -10,6 +10,7 @@ import {
   ApiOkResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 
 type CurrentUserType = {
   userId: number;
@@ -33,6 +34,21 @@ export class AuthController {
   })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Post('refresh')
+  @ApiOkResponse({ description: '토큰 재발급 성공' })
+  @ApiUnauthorizedResponse({ description: 'refresh token이 유효하지 않음' })
+  refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout')
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ description: '로그아웃 성공' })
+  logout(@CurrentUser() user: CurrentUserType) {
+    return this.authService.logout(user.userId);
   }
 
   @UseGuards(JwtAuthGuard)

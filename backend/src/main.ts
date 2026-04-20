@@ -2,12 +2,15 @@ import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
+import { join } from 'path';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -19,6 +22,9 @@ async function bootstrap() {
 
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads',
+  });
 
   const config = new DocumentBuilder()
     .setTitle('Nest Board API')
@@ -41,4 +47,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();
