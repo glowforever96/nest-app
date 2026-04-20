@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -23,6 +24,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { CurrentUserType } from '../auth/types/current-user.type.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { UpdateCommentDto } from './dto/update-comment.dto.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 
 @ApiTags('comments')
 @Controller('comments')
@@ -33,6 +36,17 @@ export class CommentsController {
   @ApiOkResponse({ description: '게시글별 댓글 목록 조회 성공' })
   findByPostId(@Param('postId', ParseIntPipe) postId: number) {
     return this.commentsService.findByPostId(postId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Get('admin/deleted')
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ description: '삭제된 댓글 목록 조회 성공 (관리자)' })
+  findDeletedComments(@Query('postId') postId?: string) {
+    return this.commentsService.findDeletedComments(
+      postId ? Number(postId) : undefined,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -72,5 +86,14 @@ export class CommentsController {
     @CurrentUser() user: CurrentUserType,
   ) {
     return this.commentsService.remove(id, user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch('admin/:id/restore')
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ description: '댓글 복구 성공 (관리자)' })
+  restore(@Param('id', ParseIntPipe) id: number) {
+    return this.commentsService.restore(id);
   }
 }

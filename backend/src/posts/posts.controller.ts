@@ -24,6 +24,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { GetPostsQueryDto } from './dto/get-posts-query.dto.js';
+import { RolesGuard } from '../auth/guards/roles.guard.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 
 @Controller('posts')
 export class PostsController {
@@ -48,6 +50,15 @@ export class PostsController {
   @ApiOkResponse({ description: '게시글 상세 조회 성공' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.postsService.findOne(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Get('admin/deleted')
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ description: '삭제된 게시글 목록 조회 성공 (관리자)' })
+  findDeleted(@Query() query: GetPostsQueryDto) {
+    return this.postsService.findDeletedPosts(query);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -87,5 +98,14 @@ export class PostsController {
     @CurrentUser() user: CurrentUserType,
   ) {
     return this.postsService.remove(id, user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Patch('admin/:id/restore')
+  @ApiBearerAuth('access-token')
+  @ApiOkResponse({ description: '게시글 복구 성공 (관리자)' })
+  restore(@Param('id', ParseIntPipe) id: number) {
+    return this.postsService.restore(id);
   }
 }

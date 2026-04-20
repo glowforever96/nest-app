@@ -21,24 +21,27 @@ export class PostsService {
 
     const skip = (page - 1) * limit;
 
-    const where = keyword
-      ? {
-          OR: [
-            {
-              title: {
-                contains: keyword,
-                mode: 'insensitive' as const,
+    const where = {
+      deletedAt: null,
+      ...(keyword
+        ? {
+            OR: [
+              {
+                title: {
+                  contains: keyword,
+                  mode: 'insensitive' as const,
+                },
               },
-            },
-            {
-              content: {
-                contains: keyword,
-                mode: 'insensitive' as const,
+              {
+                content: {
+                  contains: keyword,
+                  mode: 'insensitive' as const,
+                },
               },
-            },
-          ],
-        }
-      : {};
+            ],
+          }
+        : {}),
+    };
 
     const orderBy = {
       [sortBy]: sortOrder,
@@ -70,8 +73,6 @@ export class PostsService {
       }),
     ]);
 
-    console.log(totalItems);
-
     const totalPages = Math.ceil(totalItems / limit);
 
     return {
@@ -91,8 +92,8 @@ export class PostsService {
   }
 
   async findOne(id: number) {
-    const post = await this.prisma.post.findUnique({
-      where: { id },
+    const post = await this.prisma.post.findFirst({
+      where: { id, deletedAt: null },
       select: {
         id: true,
         title: true,
@@ -105,6 +106,27 @@ export class PostsService {
             id: true,
             email: true,
             name: true,
+          },
+        },
+        comments: {
+          where: { deletedAt: null },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          select: {
+            id: true,
+            content: true,
+            postId: true,
+            authorId: true,
+            createdAt: true,
+            updatedAt: true,
+            author: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+              },
+            },
           },
         },
       },
@@ -130,6 +152,7 @@ export class PostsService {
 
     const where = {
       authorId: userId,
+      deletedAt: null,
       ...(keyword
         ? {
             OR: [
@@ -193,6 +216,87 @@ export class PostsService {
         sortOrder,
         keyword: keyword ?? null,
         userId,
+      },
+    };
+  }
+
+  async findDeletedPosts(query: GetPostsQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const keyword = query.keyword?.trim();
+    const sortBy = query.sortBy ?? 'createdAt';
+    const sortOrder = query.sortOrder ?? 'desc';
+
+    const skip = (page - 1) * limit;
+
+    const where = {
+      deletedAt: {
+        not: null,
+      },
+      ...(keyword
+        ? {
+            OR: [
+              {
+                title: {
+                  contains: keyword,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                content: {
+                  contains: keyword,
+                  mode: 'insensitive' as const,
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const orderBy = {
+      [sortBy]: sortOrder,
+    } as const;
+
+    const [items, totalItems] = await Promise.all([
+      this.prisma.post.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy,
+        select: {
+          id: true,
+          title: true,
+          authorId: true,
+          createdAt: true,
+          updatedAt: true,
+          deletedAt: true,
+          author: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              role: true,
+            },
+          },
+        },
+      }),
+      this.prisma.post.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      items,
+      meta: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+        hasPreviousPage: page > 1,
+        hasNextPage: page < totalPages,
+        sortBy,
+        sortOrder,
+        keyword: keyword ?? null,
       },
     };
   }
@@ -263,8 +367,11 @@ export class PostsService {
       throw new ForbiddenException('본인 게시글만 삭제할 수 있습니다.');
     }
 
-    return this.prisma.post.delete({
+    return this.prisma.post.update({
       where: { id },
+      data: {
+        deletedAt: new Date(),
+      },
       select: {
         id: true,
         title: true,
@@ -272,11 +379,47 @@ export class PostsService {
         authorId: true,
         createdAt: true,
         updatedAt: true,
+        deletedAt: true,
         author: {
           select: {
             id: true,
             email: true,
             name: true,
+          },
+        },
+      },
+    });
+  }
+
+  async restore(id: number) {
+    const post = await this.prisma.post.findFirst({
+      where: { id, deletedAt: { not: null } },
+      select: { id: true },
+    });
+
+    if (!post) {
+      throw new NotFoundException('복구할 게시글을 찾을 수 없습니다.');
+    }
+
+    return this.prisma.post.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        authorId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        author: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
           },
         },
       },
@@ -296,9 +439,9 @@ export class PostsService {
     return user;
   }
 
-  private async ensurePostExists(id: number) {
-    const post = await this.prisma.post.findUnique({
-      where: { id },
+  private async ensurePostExists(postId: number) {
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, deletedAt: null },
       select: { id: true, authorId: true },
     });
 

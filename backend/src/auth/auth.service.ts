@@ -39,12 +39,13 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        role: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-    const accessToken = await this.signToken(user.id, user.email);
+    const accessToken = await this.signToken(user.id, user.email, user.role);
 
     return {
       user,
@@ -54,7 +55,7 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
-    const accessToken = await this.signToken(user.id, user.email);
+    const accessToken = await this.signToken(user.id, user.email, user.role);
 
     return {
       accessToken,
@@ -62,6 +63,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -99,10 +101,15 @@ export class AuthService {
     });
   }
 
-  private async signToken(userId: number, email: string) {
+  private async signToken(
+    userId: number,
+    email: string,
+    role: 'USER' | 'ADMIN',
+  ) {
     const paylaod = {
       sub: userId,
       email,
+      role,
     };
     return this.jwtService.signAsync(paylaod);
   }

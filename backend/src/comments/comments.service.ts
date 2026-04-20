@@ -15,8 +15,8 @@ export class CommentsService {
     await this.ensurePostExists(postId);
 
     return this.prisma.comment.findMany({
-      where: { postId },
-      orderBy: { createdAt: 'asc' },
+      where: { postId, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         content: true,
@@ -29,6 +29,39 @@ export class CommentsService {
             id: true,
             email: true,
             name: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findDeletedComments(postId?: number) {
+    const where = {
+      deletedAt: {
+        not: null,
+      },
+      ...(postId ? { postId } : {}),
+    };
+
+    return this.prisma.comment.findMany({
+      where,
+      orderBy: {
+        deletedAt: 'desc',
+      },
+      select: {
+        id: true,
+        content: true,
+        postId: true,
+        authorId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        author: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
           },
         },
       },
@@ -102,8 +135,11 @@ export class CommentsService {
       throw new ForbiddenException('본인 댓글만 삭제할 수 있습니다.');
     }
 
-    return this.prisma.comment.delete({
+    return this.prisma.comment.update({
       where: { id },
+      data: {
+        deletedAt: new Date(),
+      },
       select: {
         id: true,
         content: true,
@@ -111,11 +147,52 @@ export class CommentsService {
         authorId: true,
         createdAt: true,
         updatedAt: true,
+        deletedAt: true,
         author: {
           select: {
             id: true,
             email: true,
             name: true,
+          },
+        },
+      },
+    });
+  }
+
+  async restore(id: number) {
+    const comment = await this.prisma.comment.findFirst({
+      where: {
+        id,
+        deletedAt: {
+          not: null,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('복구할 댓글을 찾을 수 없습니다.');
+    }
+
+    return this.prisma.comment.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        content: true,
+        postId: true,
+        authorId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        author: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
           },
         },
       },
@@ -136,8 +213,8 @@ export class CommentsService {
   }
 
   private async ensurePostExists(postId: number) {
-    const post = await this.prisma.post.findUnique({
-      where: { id: postId },
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, deletedAt: null },
       select: { id: true },
     });
 
@@ -149,8 +226,8 @@ export class CommentsService {
   }
 
   private async ensureCommentExists(id: number) {
-    const comment = await this.prisma.comment.findUnique({
-      where: { id },
+    const comment = await this.prisma.comment.findFirst({
+      where: { id, deletedAt: null },
       select: {
         id: true,
         authorId: true,
