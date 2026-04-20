@@ -20,7 +20,6 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
 	const navigate = useNavigate();
 	const { auth } = Route.useRouteContext();
-	const search = Route.useSearch();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,7 +32,7 @@ function LoginPage() {
 
 		try {
 			await auth.login({ email, password });
-			await navigate({ to: search.redirect ?? "/" });
+			await navigate({ to: "/" });
 		} catch (error) {
 			setErrorMessage(
 				error instanceof Error ? error.message : "로그인 중 오류가 발생했습니다.",
@@ -60,7 +59,7 @@ function LoginPage() {
 							value={email}
 							onChange={(event) => setEmail(event.target.value)}
 							required
-							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 						/>
 					</div>
 
@@ -74,7 +73,7 @@ function LoginPage() {
 							value={password}
 							onChange={(event) => setPassword(event.target.value)}
 							required
-							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 						/>
 					</div>
 

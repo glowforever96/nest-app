@@ -55,7 +55,7 @@ function SignupPage() {
 							value={name}
 							onChange={(event) => setName(event.target.value)}
 							required
-							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 						/>
 					</div>
 
@@ -69,7 +69,7 @@ function SignupPage() {
 							value={email}
 							onChange={(event) => setEmail(event.target.value)}
 							required
-							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 						/>
 					</div>
 
@@ -83,7 +83,7 @@ function SignupPage() {
 							value={password}
 							onChange={(event) => setPassword(event.target.value)}
 							required
-							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
+							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400"
 						/>
 					</div>
 

@@ -11,6 +11,25 @@ import { join } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const allowedOrigins = [process.env.FRONTEND_URL].filter(
+    (origin): origin is string => Boolean(origin),
+  );
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const isAllowedOrigin =
+        allowedOrigins.includes(origin) ||
+        /^https?:\/\/localhost(?::\d+)?$/.test(origin);
+
+      callback(null, isAllowedOrigin);
+    },
+    credentials: true,
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
